@@ -29,7 +29,7 @@ namespace mf_dev_backend_2023.Controllers
             if (ModelState.IsValid)
             {
                 _context.Veiculos.Add(veiculo);
-                _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
                 return RedirectToAction("Index");
 
             }

@@ -26,14 +26,12 @@ namespace mf_dev_backend_2023.Models
         [Display(Name = "Tipo de Combustivel")]
         public TipoCombustivel Tipo { get; set; }
 
-        [Display(Name = "veiculo")]
+        [Display(Name = "Veiculo")]
+        [Required(ErrorMessage = "Obrigatorio informar o veiculo")]
         public int VeiculoId { get; set; }
 
         [ForeignKey("VeiculoId")]
-        public Veiculo veiculo { get; set; }
-
-        //public ICollection<Veiculo> Veiculos { get; set; }
-
+        public Veiculo Veiculo { get; set; }
 
     }
 
