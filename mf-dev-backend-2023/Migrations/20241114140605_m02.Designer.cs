@@ -12,8 +12,8 @@ using mf_dev_backend_2023.Models;
 namespace mf_dev_backend_2023.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20241106130333_M02-AddTableConsumos")]
-    partial class M02AddTableConsumos
+    [Migration("20241114140605_m02")]
+    partial class m02
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -59,6 +59,40 @@ namespace mf_dev_backend_2023.Migrations
                     b.ToTable("Consumos");
                 });
 
+            modelBuilder.Entity("mf_dev_backend_2023.Models.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Perfil")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Senha")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TokenRedefinicaoSenha")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("TokenValidade")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
             modelBuilder.Entity("mf_dev_backend_2023.Models.Veiculo", b =>
                 {
                     b.Property<int>("Id")
@@ -88,13 +122,13 @@ namespace mf_dev_backend_2023.Migrations
 
             modelBuilder.Entity("mf_dev_backend_2023.Models.Consumo", b =>
                 {
-                    b.HasOne("mf_dev_backend_2023.Models.Veiculo", "veiculo")
+                    b.HasOne("mf_dev_backend_2023.Models.Veiculo", "Veiculo")
                         .WithMany("Consumos")
                         .HasForeignKey("VeiculoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("veiculo");
+                    b.Navigation("Veiculo");
                 });
 
             modelBuilder.Entity("mf_dev_backend_2023.Models.Veiculo", b =>

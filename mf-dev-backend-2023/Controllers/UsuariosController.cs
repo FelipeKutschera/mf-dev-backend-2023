@@ -3,23 +3,35 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using mf_dev_backend_2023.Models;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using System.Net.Mail;
+using System.Net;
+using mf_dev_backend_2023.Models;
 
 namespace mf_dev_backend_2023.Controllers
 {
-    [Authorize(Roles ="Admin")]
+   // [Authorize(Roles = "Admin")]
     public class UsuariosController : Controller
     {
         private readonly AppDbContext _context;
+        private readonly string _remetente;
+        private readonly string _emailRemetente;
+        private readonly string _senhaEmail;
+        private readonly string _servidorSmtp;
+        private readonly int _portaSmtp;
 
         public UsuariosController(AppDbContext context)
         {
             _context = context;
+            // Configurações de envio de e-mail
+            _remetente = "Suporte Event Pass";
+            _emailRemetente = "luizeduardo0011@hotmail.com";
+            _senhaEmail = "eventpass@2023";
+            _servidorSmtp = "smtp-mail.outlook.com";
+            _portaSmtp = 587;
         }
 
         // GET: Usuarios
@@ -40,57 +52,62 @@ namespace mf_dev_backend_2023.Controllers
             return View();
         }
 
+        private async Task SendEmailAsync(string toEmail, string subject, string body)
+        {
+            using (var client = new SmtpClient(_servidorSmtp, _portaSmtp))
+            {
+                client.UseDefaultCredentials = false;
+                client.Credentials = new NetworkCredential(_emailRemetente, _senhaEmail);
+                client.EnableSsl = true;
+
+                var message = new MailMessage
+                {
+                    From = new MailAddress(_emailRemetente, _remetente),
+                    Subject = subject,
+                    Body = body,
+                    IsBodyHtml = true
+                };
+
+                message.To.Add(toEmail);
+                await client.SendMailAsync(message);
+            }
+        }
 
         [HttpPost]
-        [AllowAnonymous]
+       // [AllowAnonymous]
         public async Task<IActionResult> Login(Usuario usuario)
         {
             var dados = await _context.Usuarios
-                .FindAsync(usuario.Id);
+                .FirstOrDefaultAsync(u => u.Email == usuario.Email);
 
-            if(dados == null)
+            if (dados == null || !BCrypt.Net.BCrypt.Verify(usuario.Senha, dados.Senha))
             {
-                ViewBag.Message = "Usuario e/ou senha invalidos";
+                ViewBag.Message = "Usuário e/ou senha inválidos";
                 return View();
             }
 
-            bool senhaok = BCrypt.Net.BCrypt.Verify(usuario.Senha, dados.Senha);
-
-            if (senhaok)
+            var claims = new List<Claim>
             {
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, dados.Nome),
-                    new Claim(ClaimTypes.NameIdentifier, dados.Id.ToString()),
-                    new Claim(ClaimTypes.Role, dados.Perfil.ToString())
-                };
+                new Claim(ClaimTypes.Name, dados.Nome),
+                new Claim(ClaimTypes.NameIdentifier, dados.Id.ToString()),
+                new Claim(ClaimTypes.Role, dados.Perfil.ToString())
+            };
 
-                var usuarioIdentity = new ClaimsIdentity(claims, "login");
-                ClaimsPrincipal principal = new ClaimsPrincipal(usuarioIdentity);
+            var usuarioIdentity = new ClaimsIdentity(claims, "login");
+            ClaimsPrincipal principal = new ClaimsPrincipal(usuarioIdentity);
 
-                var props = new AuthenticationProperties
-                {
-                    AllowRefresh = true,
-                    ExpiresUtc = DateTime.UtcNow.ToLocalTime().AddHours(8),
-                    IsPersistent = true,
-                };
-
-                await HttpContext.SignInAsync(principal, props);
-
-               return Redirect("/");
-
-            } 
-            else
+            var props = new AuthenticationProperties
             {
-                ViewBag.Message = "Usuario e/ou senha invalidos";
+                AllowRefresh = true,
+                ExpiresUtc = DateTime.UtcNow.AddHours(8),
+                IsPersistent = true,
+            };
 
-            }
-            
-
-            return View();
+            await HttpContext.SignInAsync(principal, props);
+            return Redirect("/");
         }
 
-        [AllowAnonymous]
+       // [AllowAnonymous]
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync();
@@ -100,33 +117,17 @@ namespace mf_dev_backend_2023.Controllers
         // GET: Usuarios/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (usuario == null)
-            {
-                return NotFound();
-            }
-
-            return View(usuario);
+            if (id == null) return NotFound();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(m => m.Id == id);
+            return usuario == null ? NotFound() : View(usuario);
         }
 
         // GET: Usuarios/Create
-        public IActionResult Create()
-        {
-            return View();
-        }
+        public IActionResult Create() => View();
 
-        // POST: Usuarios/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Nome,Senha,Perfil")] Usuario usuario)
+      
+        public async Task<IActionResult> Create([Bind("Id,Nome,Email,Senha,Perfil")] Usuario usuario)
         {
             if (ModelState.IsValid)
             {
@@ -141,30 +142,16 @@ namespace mf_dev_backend_2023.Controllers
         // GET: Usuarios/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
+            if (id == null) return NotFound();
             var usuario = await _context.Usuarios.FindAsync(id);
-            if (usuario == null)
-            {
-                return NotFound();
-            }
-            return View(usuario);
+            return usuario == null ? NotFound() : View(usuario);
         }
 
-        // POST: Usuarios/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Nome,Senha,Perfil")] Usuario usuario)
+        
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Nome,Email,Senha,Perfil")] Usuario usuario)
         {
-            if (id != usuario.Id)
-            {
-                return NotFound();
-            }
+            if (id != usuario.Id) return NotFound();
 
             if (ModelState.IsValid)
             {
@@ -176,14 +163,8 @@ namespace mf_dev_backend_2023.Controllers
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!UsuarioExists(usuario.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
+                    if (!_context.Usuarios.Any(e => e.Id == usuario.Id)) return NotFound();
+                    throw;
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -193,111 +174,102 @@ namespace mf_dev_backend_2023.Controllers
         // GET: Usuarios/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(m => m.Id == id);
-            if (usuario == null)
-            {
-                return NotFound();
-            }
-
-            return View(usuario);
+            if (id == null) return NotFound();
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(m => m.Id == id);
+            return usuario == null ? NotFound() : View(usuario);
         }
 
-        // POST: Usuarios/Delete/5
         [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
+       // [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var usuario = await _context.Usuarios.FindAsync(id);
-            if (usuario != null)
-            {
-                _context.Usuarios.Remove(usuario);
-            }
-
+            if (usuario != null) _context.Usuarios.Remove(usuario);
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
-        private bool UsuarioExists(int id)
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult EsqueciSenha()
         {
-            return _context.Usuarios.Any(e => e.Id == id);
+            return View();
         }
-         
-[HttpPost]
-public async Task<IActionResult> EsqueciSenha(string email)
-{
-    var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
 
-    if (usuario == null)
-    {
-        ViewBag.Message = "E-mail não encontrado.";
-        return View();
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> EsqueciSenha(string email)
+        {
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+            if (usuario == null)
+            {
+                ViewBag.Message = "E-mail não encontrado.";
+                return View();
+            }
+
+            // Gerar Token de Redefinição
+            usuario.TokenRedefinicaoSenha = Guid.NewGuid().ToString();
+            usuario.TokenValidade = DateTime.UtcNow.AddHours(1);
+
+            // Atualizar o usuário com o token
+            _context.Update(usuario);
+            await _context.SaveChangesAsync();
+
+            // Link para redefinição de senha
+            string callbackUrl = Url.Action("RedefinirSenha", "Usuarios", new { token = usuario.TokenRedefinicaoSenha }, Request.Scheme);
+            string emailBody = $@"
+        <h3>Redefinição de Senha</h3>
+        <p>Clique no link abaixo para redefinir sua senha:</p>
+        <a href='{callbackUrl}'>Redefinir Senha</a>";
+
+            // Enviar Email
+            await SendEmailAsync(usuario.Email, "Redefinição de Senha", emailBody);
+
+            // Mensagem de sucesso
+            ViewBag.Message = "Um link para redefinir sua senha foi enviado para o seu e-mail.";
+            return View("ConfirmacaoEsqueciSenha");
+        }
+
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult RedefinirSenha(string token)
+        {
+            var usuario = _context.Usuarios.FirstOrDefault(u => u.TokenRedefinicaoSenha == token);
+            if (usuario == null || usuario.TokenValidade < DateTime.UtcNow)
+            {
+                ViewBag.Message = "Token inválido ou expirado.";
+                return View("EsqueciSenha");
+            }
+
+            ViewBag.Token = token;
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> RedefinirSenha(string novaSenha, string token)
+        {
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.TokenRedefinicaoSenha == token);
+
+            if (usuario == null || usuario.TokenValidade < DateTime.UtcNow)
+            {
+                ViewBag.Message = "Token inválido ou expirado.";
+                return View();
+            }
+
+            // Atualizar senha
+            usuario.Senha = BCrypt.Net.BCrypt.HashPassword(novaSenha);
+            usuario.TokenRedefinicaoSenha = null;
+            usuario.TokenValidade = null;
+
+            _context.Update(usuario);
+            await _context.SaveChangesAsync();
+
+            ViewBag.Message = "Senha redefinida com sucesso.";
+            return RedirectToAction("Login");
+        }
+
+
     }
-
-    string token = Guid.NewGuid().ToString();
-    usuario.TokenRedefinicaoSenha = token;
-    usuario.TokenValidade = DateTime.UtcNow.AddHours(1); // Validade de 1 hora
-
-    _context.Update(usuario);
-    await _context.SaveChangesAsync();
-
-    string callbackUrl = Url.Action("RedefinirSenha", "Usuarios", new { token = token }, Request.Scheme);
-
-    // Implementar método SendEmailAsync corretamente
-    await SendEmailAsync(usuario.Email, "Redefinição de Senha",
-        $"Clique no link abaixo para redefinir sua senha:\n {callbackUrl}");
-
-    ViewBag.Message = "Um link para redefinir sua senha foi enviado para o seu e-mail.";
-    return View();
-}
-
-public IActionResult RedefinirSenha(string token)
-{
-    var usuario = _context.Usuarios.FirstOrDefault(u => u.TokenRedefinicaoSenha == token);
-
-    if (usuario == null || usuario.TokenValidade < DateTime.UtcNow)
-    {
-        ViewBag.Message = "Token de redefinição de senha inválido ou expirado.";
-        return View("EsqueciSenha");
-    }
-
-    ViewBag.Token = token;
-    return View();
-}
-
-[HttpPost]
-public async Task<IActionResult> RedefinirSenha(string novaSenha, string token)
-{
-    var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.TokenRedefinicaoSenha == token);
-
-    if (usuario == null || usuario.TokenValidade < DateTime.UtcNow)
-    {
-        ViewBag.Message = "Token de redefinição de senha inválido ou expirado.";
-        return View();
-    }
-
-    if (string.IsNullOrWhiteSpace(novaSenha) || novaSenha.Length < 8)
-    {
-        ViewBag.Message = "A nova senha deve ter pelo menos 8 caracteres, incluindo letras e números.";
-        return View();
-    }
-
-    // Atualizar senha e limpar o token
-    usuario.Senha = BCrypt.Net.BCrypt.HashPassword(novaSenha);
-    usuario.TokenRedefinicaoSenha = null;
-    usuario.TokenValidade = null;
-
-    _context.Update(usuario);
-    await _context.SaveChangesAsync();
-
-    ViewBag.Message = "Senha redefinida com sucesso. Agora você pode fazer login.";
-    return RedirectToAction("Login", "Usuarios");
-}
-
-
 }

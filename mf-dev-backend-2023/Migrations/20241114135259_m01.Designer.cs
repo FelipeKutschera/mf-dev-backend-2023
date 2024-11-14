@@ -12,8 +12,8 @@ using mf_dev_backend_2023.Models;
 namespace mf_dev_backend_2023.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20241110214536_M03-AddTableUsuarios")]
-    partial class M03AddTableUsuarios
+    [Migration("20241114135259_m01")]
+    partial class m01
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -67,6 +67,10 @@ namespace mf_dev_backend_2023.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -77,6 +81,12 @@ namespace mf_dev_backend_2023.Migrations
                     b.Property<string>("Senha")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TokenRedefinicaoSenha")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("TokenValidade")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 

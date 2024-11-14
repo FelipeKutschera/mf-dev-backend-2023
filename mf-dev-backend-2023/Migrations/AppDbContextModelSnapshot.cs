@@ -64,6 +64,10 @@ namespace mf_dev_backend_2023.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -74,6 +78,12 @@ namespace mf_dev_backend_2023.Migrations
                     b.Property<string>("Senha")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TokenRedefinicaoSenha")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("TokenValidade")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
