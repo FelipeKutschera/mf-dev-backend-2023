@@ -227,5 +227,80 @@ namespace mf_dev_backend_2023.Controllers
         {
             return _context.Usuarios.Any(e => e.Id == id);
         }
+         
+[HttpPost]
+public async Task<IActionResult> EsqueciSenha(string email)
+{
+    var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+
+    if (usuario == null)
+    {
+        ViewBag.Message = "E-mail não encontrado.";
+        return View();
     }
+
+    // Gerar um token e definir validade de 1 hora
+    string token = Guid.NewGuid().ToString();
+    usuario.TokenRedefinicaoSenha = token;
+    usuario.TokenValidade = DateTime.UtcNow.AddHours(1);
+
+    _context.Update(usuario);
+    await _context.SaveChangesAsync();
+
+    string callbackUrl = Url.Action("RedefinirSenha", "Usuarios", new { token = token }, Request.Scheme);
+
+    // Envie um e-mail ao usuário com um link para redefinir a senha
+    await SendEmailAsync(usuario.Email, "Redefinição de Senha",
+        $"Clique no link abaixo para redefinir sua senha:\n\n {callbackUrl}");
+
+    ViewBag.Message = "Um link para redefinir sua senha foi enviado para o seu e-mail.";
+    return View();
+}
+
+public IActionResult RedefinirSenha(string token)
+{
+    var usuario = _context.Usuarios.FirstOrDefault(u => u.TokenRedefinicaoSenha == token);
+
+    // Verificar se o token existe e se ainda está válido
+    if (usuario == null || usuario.TokenValidade < DateTime.UtcNow)
+    {
+        ViewBag.Message = "Token de redefinição de senha inválido ou expirado.";
+        return View("EsqueciSenha");
+    }
+
+    ViewBag.Token = token;
+    return View();
+}
+
+
+       [HttpPost]
+public async Task<IActionResult> RedefinirSenha(string novaSenha, string token)
+{
+    var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.TokenRedefinicaoSenha == token);
+
+    if (usuario == null || usuario.TokenValidade < DateTime.UtcNow)
+    {
+        ViewBag.Message = "Token de redefinição de senha inválido ou expirado.";
+        return View();
+    }
+
+    // Verificar se a nova senha atende aos requisitos de complexidade
+    if (string.IsNullOrWhiteSpace(novaSenha) || novaSenha.Length < 8)
+    {
+        ViewBag.Message = "A nova senha deve ter pelo menos 8 caracteres.";
+        return View();
+    }
+
+    // Atualizar a senha do usuário e limpar o token
+    usuario.Senha = BCrypt.Net.BCrypt.HashPassword(novaSenha);
+    usuario.TokenRedefinicaoSenha = null;
+    usuario.TokenValidade = null;
+
+    _context.Update(usuario);
+    await _context.SaveChangesAsync();
+
+    ViewBag.Message = "Senha redefinida com sucesso. Agora você pode fazer login com a nova senha.";
+    return RedirectToAction("Login", "Usuarios");
+}
+
 }
