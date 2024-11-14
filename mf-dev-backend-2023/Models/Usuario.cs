@@ -18,6 +18,9 @@ namespace mf_dev_backend_2023.Models
 
         [Required(ErrorMessage = "Obrigatoio informar a senha")]
         public Perfil Perfil { get; set; }
+        public string? TokenRedefinicaoSenha { get; set; }
+        public DateTime? TokenValidade { get; set; }
+
 
     }
     public enum Perfil
